@@ -211,7 +211,7 @@ train_pipeline = [
          ),
     dict(
         type='VectorizeLocalMap',
-        data_root='./datasets/nuScenes',
+        data_root='./nuscenes',
         patch_size=(roi_size[1],roi_size[0]),
         sample_dist=0.7,
         num_samples=150,
@@ -255,9 +255,9 @@ eval_cfg = dict(
     origin=(-30,-15),
     evaluation_cfg=dict(
         result_path='./',
-        dataroot='/mnt/datasets/nuScenes/',
+        dataroot='/mnt/nuscenes/',
         # will be overwirte in code
-        ann_file='/mnt/datasets/nuScenes/nuScences_map_trainval_infos_train.pkl',
+        ann_file='/mnt/nuscenes/nuScences_map_trainval_infos_train.pkl',
         num_class=num_class,
         class_name=['ped_crossing','divider','contours'],
     )
@@ -268,9 +268,9 @@ data = dict(
     workers_per_gpu=8,
     train=dict(
         type='NuscDataset',
-        data_root='./datasets/nuScenes',
-        # ann_file='./datasets/nuScenes/nuscenes_map_infos_train.pkl',
-        ann_file='./datasets/nuScenes/nuscenes_map_infos_train.pkl',
+        data_root='./nuscenes',
+        # ann_file='./nuscenes/nuscenes_map_infos_train.pkl',
+        ann_file='./nuscenes/nuscenes_map_infos_train.pkl',
         modality=input_modality,
         roi_size=roi_size,
         cat2id=class2label,
@@ -280,8 +280,8 @@ data = dict(
     ),
     val=dict(
         type='NuscDataset',
-        data_root='./datasets/nuScenes',
-        ann_file='./datasets/nuScenes/nuscenes_map_infos_val.pkl',
+        data_root='./nuscenes',
+        ann_file='./nuscenes/nuscenes_map_infos_val.pkl',
         modality=input_modality,
         roi_size=roi_size,
         cat2id=class2label,
@@ -291,8 +291,8 @@ data = dict(
     ),
     test=dict(
         type='NuscDataset',
-        data_root='./datasets/nuScenes',
-        ann_file='./datasets/nuScenes/nuscenes_map_infos_val.pkl',
+        data_root='./nuscenes',
+        ann_file='./nuscenes/nuscenes_map_infos_val.pkl',
         modality=input_modality,
         roi_size=roi_size,
         cat2id=class2label,

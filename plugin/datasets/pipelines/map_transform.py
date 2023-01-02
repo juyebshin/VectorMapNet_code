@@ -106,6 +106,13 @@ class VectorizeLocalMap(object):
         self.size = np.array([self.patch_size[1], self.patch_size[0]]) + 2
 
 
+    def reverse_geom(self, geom):
+        def _reverse(x, y, z=None):
+            if z:
+                return x[::-1], y[::-1], z[::-1]
+            return x[::-1], y[::-1]
+        return ops.transform(_reverse, geom)
+    
     def retrive_geom(self, patch_params):
         '''
             Get the geometric data.
@@ -172,6 +179,7 @@ class VectorizeLocalMap(object):
         return customized_geoms_dict
 
     def union_ped(self, ped_geoms):
+        # ped_geoms: list of shapely MultiPolygon
 
         def get_rec_direction(geom):
             rect = geom.minimum_rotated_rectangle
@@ -197,15 +205,15 @@ class VectorizeLocalMap(object):
             final_pgeom.append(pgeom)
 
             for o in tree.query(pgeom):
-                o_idx = index_by_id[id(o)]
+                o_idx = index_by_id[id(ped_geoms[o])] # o
                 if o_idx not in remain_idx:
                     continue
 
-                o_v, o_v_norm = get_rec_direction(o)
+                o_v, o_v_norm = get_rec_direction(ped_geoms[o]) # o
                 cos = pgeom_v.dot(o_v)/(pgeom_v_norm*o_v_norm)
                 if 1 - np.abs(cos) < 0.01:  # theta < 8 degrees.
                     final_pgeom[-1] =\
-                        final_pgeom[-1].union(o)
+                        final_pgeom[-1].union(ped_geoms[o]) # o
                     # update
                     remain_idx.pop(remain_idx.index(o_idx))
 
@@ -240,7 +248,7 @@ class VectorizeLocalMap(object):
         for line in line_geom:
             if not line.is_empty:
                 if line.geom_type == 'MultiLineString':
-                    for l in line:
+                    for l in line.geoms:
                         if sample_pts:
                             v, nl = self._sample_pts_from_line(
                                 l, label, vector_len)
@@ -271,15 +279,22 @@ class VectorizeLocalMap(object):
         interiors = []
 
         for geom in polygon_geoms:
-            for poly in geom:
-                exteriors.append(poly.exterior)
-                for inter in poly.interiors:
-                    interiors.append(inter)
+            if geom.geom_type == 'MultiPolygon':
+                for poly in geom.geoms:
+                    exteriors.append(poly.exterior)
+                    for inter in poly.interiors:
+                        interiors.append(inter)
+            else:
+                for poly in geom:
+                    exteriors.append(poly.exterior)
+                    for inter in poly.interiors:
+                        interiors.append(inter)
 
         results = []
         for ext in exteriors:
             if ext.is_ccw:
-                ext.coords = list(ext.coords)[::-1]
+                # ext.coords = list(ext.coords)[::-1]
+                ext = self.reverse_geom(ext)
             lines = ext.intersection(local_patch)
             # since the start and end will disjoint
             # after applying the intersection.
@@ -289,7 +304,8 @@ class VectorizeLocalMap(object):
 
         for inter in interiors:
             if not inter.is_ccw:
-                inter.coords = list(inter.coords)[::-1]
+                # inter.coords = list(inter.coords)[::-1]
+                ext = self.reverse_geom(ext)
             lines = inter.intersection(local_patch)
             if lines.type != 'LineString':
                 lines = ops.linemerge(lines)
@@ -304,26 +320,51 @@ class VectorizeLocalMap(object):
         local_patch = box(-max_x + 0.2, -max_y + 0.2, max_x - 0.2, max_y - 0.2)
         results = []
         for geom in geoms:
-            for ped_poly in geom:
-                # rect = ped_poly.minimum_rotated_rectangle
-                ext = ped_poly.exterior
-                if not ext.is_ccw:
-                    ext.coords = list(ext.coords)[::-1]
-                lines = ext.intersection(local_patch)
+            if geom.geom_type == 'MultiPolygon':
+                for ped_poly in geom.geoms:
+                    # rect = ped_poly.minimum_rotated_rectangle
+                    ext = ped_poly.exterior
+                    if not ext.is_ccw:
+                        # ext.coords = list(ext.coords)[::-1]
+                        ext = self.reverse_geom(ext)
+                    lines = ext.intersection(local_patch)
 
-                if lines.type != 'LineString':
-                    lines = ops.linemerge(lines)
+                    if lines.type != 'LineString':
+                        lines = ops.linemerge(lines)
 
-                # same instance but not connected.
-                if lines.type != 'LineString':
-                    ls = []
-                    for l in lines.geoms:
-                        ls.append(np.array(l.coords))
+                    # same instance but not connected.
+                    if lines.type != 'LineString':
+                        ls = []
+                        for l in lines.geoms:
+                            ls.append(np.array(l.coords))
 
-                    lines = np.concatenate(ls, axis=0)
-                    lines = LineString(lines)
+                        lines = np.concatenate(ls, axis=0)
+                        lines = LineString(lines)
 
-                results.append(lines)
+                    results.append(lines)
+            
+            else:
+                for ped_poly in geom:
+                    # rect = ped_poly.minimum_rotated_rectangle
+                    ext = ped_poly.exterior
+                    if not ext.is_ccw:
+                        # ext.coords = list(ext.coords)[::-1]
+                        ext = self.reverse_geom(ext)
+                    lines = ext.intersection(local_patch)
+
+                    if lines.type != 'LineString':
+                        lines = ops.linemerge(lines)
+
+                    # same instance but not connected.
+                    if lines.type != 'LineString':
+                        ls = []
+                        for l in lines.geoms:
+                            ls.append(np.array(l.coords))
+
+                        lines = np.concatenate(ls, axis=0)
+                        lines = LineString(lines)
+
+                    results.append(lines)
 
         return results
 
